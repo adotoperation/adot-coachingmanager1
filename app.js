@@ -227,6 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (statusText) statusText.textContent = "AI 모델 로딩 중...";
                 chatStatus.textContent = "AI 분석 모델을 로딩 중입니다...";
 
+                // TensorFlow.js 백엔드 준비 대기 (WASM 오류 방지)
+                if (faceapi.tf && faceapi.tf.ready) {
+                    await faceapi.tf.ready();
+                }
+
                 // jsDelivr가 간혹 실패할 경우를 대비하여 원본 저장소 및 미러 사이트를 순차적으로 로드 시도할 수 있음
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
