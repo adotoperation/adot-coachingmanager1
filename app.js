@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let timeLeft = 15 * 60; // 15분
     let isSessionRunning = false;
 
+    // 표정 분석을 위한 변수
+    let lastLandmarks = null;
+    let expressionHistory = {
+        warmth: [],
+        focus: [],
+        energy: []
+    };
+
     // ==========================================
     // [개발 환경용 임시 자동 로그인 로직]
     // 새로고침 시마다 로그인하는 번거로움을 줄이기 위함
@@ -209,32 +217,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize Coaching Session
     async function initCoaching() {
-        // 모의(Mock) 자세 분석 시뮬레이션
-        setTimeout(() => {
-            const syncRateText = document.getElementById('sync-rate-text');
-            const syncRateBar = document.getElementById('sync-rate-bar');
-            const syncFeedback = document.getElementById('sync-feedback');
-            
-            if (syncRateBar) {
-                syncRateBar.style.width = '30%';
-                if (syncRateText) syncRateText.textContent = '30%';
+        // Face API 모델 로드 시작
+        if (!isModelsLoaded) {
+            try {
+                chatStatus.textContent = "AI 분석 모델을 로드하고 있습니다...";
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+                ]);
+                isModelsLoaded = true;
+                console.log("✅ Face API 모델 로드 완료");
+            } catch (err) {
+                console.error("모델 로드 실패:", err);
+                chatStatus.textContent = "AI 모델 로드 실패. 일부 기능이 제한될 수 있습니다.";
             }
-            
-            setTimeout(() => {
-                if (syncRateBar) syncRateBar.style.width = '75%';
-                if (syncRateText) syncRateText.textContent = '75%';
-            }, 800);
-            
-            setTimeout(() => {
-                if (syncRateBar) syncRateBar.style.width = '94%';
-                if (syncRateText) syncRateText.textContent = '94%';
-                if (syncFeedback) {
-                    syncFeedback.textContent = '✓ 상반신 및 얼굴 구도가 아주 좋습니다!';
-                    syncFeedback.style.color = '#34d399';
-                    syncFeedback.style.fontWeight = '500';
-                }
-            }, 1800);
-        }, 300);
+        }
         
         // Fetch Personas from API
         try {
@@ -287,11 +285,157 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 마이크 볼륨 시각화 미리 시작
-            if (webcamStream) startAudioVisualizer(webcamStream);
+            if (webcamStream) {
+                startAudioVisualizer(webcamStream);
+                // 실시간 표정 분석 루프 시작
+                if (isModelsLoaded) startFaceAnalysis();
+            }
         } catch (err) {
             console.error("Recording error:", err);
             chatStatus.textContent = "권한이 없어 카메라나 마이크를 사용할 수 없습니다.";
         }
+    }
+
+    // ==========================================
+    // 실시간 표정 및 구도 분석 로직
+    // ==========================================
+    async function startFaceAnalysis() {
+        if (!webcamVideo || !isModelsLoaded) return;
+
+        const syncRateText = document.getElementById('sync-rate-text');
+        const syncRateBar = document.getElementById('sync-rate-bar');
+        const syncFeedback = document.getElementById('sync-feedback');
+        
+        const warmthScoreEl = document.getElementById('warmth-score');
+        const warmthBar = document.getElementById('warmth-bar');
+        const focusScoreEl = document.getElementById('focus-score');
+        const focusBar = document.getElementById('focus-bar');
+        const energyScoreEl = document.getElementById('energy-score');
+        const energyBar = document.getElementById('energy-bar');
+
+        const runAnalysis = async () => {
+            if (!webcamStream) return;
+
+            const detections = await faceapi.detectSingleFace(
+                webcamVideo,
+                new faceapi.TinyFaceDetectorOptions()
+            ).withFaceLandmarks().withFaceExpressions();
+
+            if (detections) {
+                // 1. 구도 분석 (상반신/얼굴 위치)
+                const box = detections.detection.box;
+                const videoWidth = webcamVideo.videoWidth || 640;
+                const videoHeight = webcamVideo.videoHeight || 480;
+                
+                // 가이드라인(중앙)과의 거리 및 크기 계산
+                const faceCenterX = box.x + box.width / 2;
+                const faceCenterY = box.y + box.height / 2;
+                const distFromCenter = Math.sqrt(
+                    Math.pow((faceCenterX - videoWidth / 2) / videoWidth, 2) + 
+                    Math.pow((faceCenterY - videoHeight / 3) / videoHeight, 2)
+                );
+                
+                const sizeRatio = box.width / videoWidth;
+                let syncScore = Math.max(0, 100 - (distFromCenter * 150));
+                if (sizeRatio < 0.1) syncScore *= 0.5; // 너무 멀리 있음
+                if (sizeRatio > 0.5) syncScore *= 0.8; // 너무 가까움
+                
+                const finalSync = Math.min(100, Math.round(syncScore));
+                if (syncRateBar) syncRateBar.style.width = finalSync + '%';
+                if (syncRateText) syncRateText.textContent = finalSync + '%';
+                
+                if (syncFeedback) {
+                    if (finalSync >= 90) {
+                        syncFeedback.textContent = "✓ 상반신 및 얼굴 구도가 아주 좋습니다!";
+                        syncFeedback.style.color = "#34d399";
+                    } else if (finalSync >= 70) {
+                        syncFeedback.textContent = "구도가 양호합니다. 조금 더 중앙으로 와주세요.";
+                        syncFeedback.style.color = "#fbbf24";
+                    } else {
+                        syncFeedback.textContent = "⚠️ 카메라 중앙에 상반신이 오도록 맞춰주세요.";
+                        syncFeedback.style.color = "#ef4444";
+                    }
+                }
+
+                // 2. 항목별 표정 분석 (AI Logic 반영)
+                const expr = detections.expressions;
+                const landmarks = detections.landmarks;
+                
+                // ① 친밀 공감 (Warmth): 행복도 + 입꼬리
+                const mouth = landmarks.getMouth();
+                const leftMouth = mouth[0];
+                const rightMouth = mouth[6];
+                const topMouth = mouth[3];
+                const bottomMouth = mouth[9];
+                const mouthWidth = Math.sqrt(Math.pow(leftMouth.x - rightMouth.x, 2) + Math.pow(leftMouth.y - rightMouth.y, 2));
+                const mouthUpward = ((leftMouth.y + rightMouth.y) / 2) - bottomMouth.y;
+                
+                let warmthVal = (expr.happy * 70) + (Math.max(0, mouthUpward + 10) * 2);
+                warmthVal = Math.min(100, Math.max(0, warmthVal));
+                
+                // smoothing
+                expressionHistory.warmth.push(warmthVal);
+                if (expressionHistory.warmth.length > 10) expressionHistory.warmth.shift();
+                const avgWarmth = Math.round(expressionHistory.warmth.reduce((a, b) => a + b, 0) / expressionHistory.warmth.length);
+                
+                if (warmthScoreEl) warmthScoreEl.textContent = avgWarmth + '%';
+                if (warmthBar) warmthBar.style.width = avgWarmth + '%';
+
+                // ② 신뢰 몰입 (Focus): 중립도 + 미간 거리
+                const leftEye = landmarks.getLeftEye();
+                const rightEye = landmarks.getRightEye();
+                const leftEyebrow = landmarks.getLeftEyeBrow();
+                const rightEyebrow = landmarks.getRightEyeBrow();
+                
+                // 미간 집중도 (눈썹 사이 거리 변화)
+                const browDist = Math.abs(leftEyebrow[4].x - rightEyebrow[0].x);
+                let focusVal = (expr.neutral * 60) + (expr.surprised * 20);
+                if (browDist < (mouthWidth * 0.45)) focusVal += 30; // 미간 찌푸림(집중)
+                focusVal = Math.min(100, Math.max(0, focusVal));
+                
+                // smoothing
+                expressionHistory.focus.push(focusVal);
+                if (expressionHistory.focus.length > 10) expressionHistory.focus.shift();
+                const avgFocus = Math.round(expressionHistory.focus.reduce((a, b) => a + b, 0) / expressionHistory.focus.length);
+
+                if (focusScoreEl) focusScoreEl.textContent = avgFocus + '%';
+                if (focusBar) focusBar.style.width = avgFocus + '%';
+
+                // ③ 열정 활력 (Energy): 표정 변화 빈도 + 움직임
+                let movement = 0;
+                if (lastLandmarks) {
+                    const currentPos = landmarks.positions;
+                    const lastPos = lastLandmarks.positions;
+                    for (let i = 0; i < currentPos.length; i += 10) { // 샘플링
+                        movement += Math.sqrt(Math.pow(currentPos[i].x - lastPos[i].x, 2) + Math.pow(currentPos[i].y - lastPos[i].y, 2));
+                    }
+                }
+                lastLandmarks = landmarks;
+                
+                let energyVal = (movement * 5) + (expr.surprised * 40) + ((1 - expr.neutral) * 20); 
+                energyVal = Math.min(100, Math.max(0, energyVal));
+                
+                // smoothing
+                expressionHistory.energy.push(energyVal);
+                if (expressionHistory.energy.length > 15) expressionHistory.energy.shift();
+                const avgEnergy = Math.round(expressionHistory.energy.reduce((a, b) => a + b, 0) / expressionHistory.energy.length);
+
+                if (energyScoreEl) energyScoreEl.textContent = avgEnergy + '%';
+                if (energyBar) energyBar.style.width = avgEnergy + '%';
+
+            } else {
+                // 얼굴 미검출 시 점진적 하락
+                if (syncRateBar) syncRateBar.style.width = '0%';
+                if (syncRateText) syncRateText.textContent = '0%';
+                if (syncFeedback) syncFeedback.textContent = "얼굴을 찾을 수 없습니다.";
+            }
+
+            if (isSessionRunning || !isModelsLoaded) {
+                requestAnimationFrame(runAnalysis);
+            }
+        };
+
+        runAnalysis();
     }
 
     // Stop Coaching Session

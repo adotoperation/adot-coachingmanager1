@@ -150,17 +150,61 @@
                     <div style="position: absolute; top: 15%; left: 20%; width: 60%; height: 75%; border: 2px dashed rgba(52, 211, 153, 0.6); border-radius: 40% 40% 20% 20%; pointer-events: none;"></div>
                 </div>
 
-                <!-- 자세 분석 결과 (싱크로율) -->
-                <div class="pose-accuracy-box" style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+                <!-- 자세 분석 결과 (상반신 구도) -->
+                <div class="analysis-card" style="margin-top: 16px; padding: 16px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; backdrop-filter: blur(10px);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-size: 14px; color: var(--text-secondary);">상반신 구도 싱크로율</span>
-                        <span id="sync-rate-text" style="font-size: 18px; font-weight: 700; color: #34d399;">계산 중...</span>
+                        <span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">📏 상반신 구도 분석</span>
+                        <span id="sync-rate-text" style="font-size: 16px; font-weight: 700; color: #34d399;">계산 중...</span>
                     </div>
-                    <!-- 진행률 표시 바 -->
-                    <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-                        <div id="sync-rate-bar" style="width: 0%; height: 100%; background: #34d399; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                        <div id="sync-rate-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #34d399, #10b981); transition: width 0.5s ease;"></div>
                     </div>
-                    <p id="sync-feedback" style="font-size: 13px; color: var(--text-secondary); margin-top: 12px; text-align: center;">자세를 분석하고 있습니다...</p>
+                    <p id="sync-feedback" style="font-size: 12px; color: var(--text-secondary); text-align: center;">프레임 분석 중...</p>
+                </div>
+
+                <!-- 실시간 표정 분석 섹션 -->
+                <div id="expression-analysis" style="margin-top: 16px; display: grid; gap: 12px;">
+                    <!-- ① 친밀 공감 (Warmth) -->
+                    <div class="analysis-card" style="padding: 14px; background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 14px; font-weight: 600; color: #a5b4fc;">① 친밀 공감 (Warmth)</span>
+                            <span id="warmth-score" style="font-size: 16px; font-weight: 700; color: #a5b4fc;">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 10px;">
+                            <div id="warmth-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1, #a5b4fc); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; text-align: center;">
+                            <span style="font-size: 12px; color: #cbd5e1; font-weight: 500;">"학생이 마음을 열고 있나요?"</span>
+                        </div>
+                    </div>
+
+                    <!-- ② 신뢰 몰입 (Focus) -->
+                    <div class="analysis-card" style="padding: 14px; background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 14px; font-weight: 600; color: #7dd3fc;">② 신뢰 몰입 (Focus)</span>
+                            <span id="focus-score" style="font-size: 16px; font-weight: 700; color: #7dd3fc;">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 10px;">
+                            <div id="focus-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0ea5e9, #7dd3fc); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; text-align: center;">
+                            <span style="font-size: 12px; color: #cbd5e1; font-weight: 500;">"전문성이 느껴지는 눈빛인가요?"</span>
+                        </div>
+                    </div>
+
+                    <!-- ③ 열정 활력 (Energy) -->
+                    <div class="analysis-card" style="padding: 14px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 14px; font-weight: 600; color: #fbbf24;">③ 열정 활력 (Energy)</span>
+                            <span id="energy-score" style="font-size: 16px; font-weight: 700; color: #fbbf24;">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 10px;">
+                            <div id="energy-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; text-align: center;">
+                            <span style="font-size: 12px; color: #cbd5e1; font-weight: 500;">"수업에 활기가 느껴지나요?"</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 목소리 설정 및 속도 세팅 -->
