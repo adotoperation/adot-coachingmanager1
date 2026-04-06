@@ -338,123 +338,131 @@ document.addEventListener('DOMContentLoaded', () => {
         const energyBar = document.getElementById('energy-bar');
 
         const runAnalysis = async () => {
-            if (!webcamStream || !isModelsLoaded || typeof faceapi === 'undefined') {
+            if (!webcamVideo || !webcamStream || !isModelsLoaded || typeof faceapi === 'undefined') {
                 if (webcamStream) requestAnimationFrame(runAnalysis);
                 return;
             }
 
-            const detections = await faceapi.detectSingleFace(
-                webcamVideo,
-                new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.1 })
-            ).withFaceLandmarks().withFaceExpressions();
+            // 비디오 스트림이 유효한지(화면이 들어오는지) 한 번 더 체크
+            if (webcamVideo.readyState !== 4) {
+                 requestAnimationFrame(runAnalysis);
+                 return;
+            }
 
-            if (detections) {
-                // 1. 구도 분석 (상반신/얼굴 위치)
-                const box = detections.detection.box;
-                const videoWidth = webcamVideo.videoWidth || 640;
-                const videoHeight = webcamVideo.videoHeight || 480;
-                
-                // 가이드라인(중앙)과의 거리 및 크기 계산
-                const faceCenterX = box.x + box.width / 2;
-                const faceCenterY = box.y + box.height / 2;
-                const distFromCenter = Math.sqrt(
-                    Math.pow((faceCenterX - videoWidth / 2) / videoWidth, 2) + 
-                    Math.pow((faceCenterY - videoHeight / 3) / videoHeight, 2)
-                );
-                
-                const sizeRatio = box.width / videoWidth;
-                let syncScore = Math.max(0, 100 - (distFromCenter * 150));
-                if (sizeRatio < 0.1) syncScore *= 0.5; // 너무 멀리 있음
-                if (sizeRatio > 0.5) syncScore *= 0.8; // 너무 가까움
-                
-                const finalSync = Math.min(100, Math.round(syncScore));
-                if (syncRateBar) syncRateBar.style.width = finalSync + '%';
-                if (syncRateText) syncRateText.textContent = finalSync + '%';
-                
-                if (syncFeedback) {
-                    if (finalSync >= 90) {
-                        syncFeedback.textContent = "✓ 상반신 및 얼굴 구도가 아주 좋습니다!";
-                        syncFeedback.style.color = "#34d399";
-                    } else if (finalSync >= 70) {
-                        syncFeedback.textContent = "구도가 양호합니다. 조금 더 중앙으로 와주세요.";
-                        syncFeedback.style.color = "#fbbf24";
-                    } else {
-                        syncFeedback.textContent = "⚠️ 카메라 중앙에 상반신이 오도록 맞춰주세요.";
-                        syncFeedback.style.color = "#ef4444";
+            try {
+                const detections = await faceapi.detectSingleFace(
+                    webcamVideo,
+                    new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.05 })
+                ).withFaceLandmarks().withFaceExpressions();
+
+                if (detections) {
+                    // 1. 구도 분석 (상반신/얼굴 위치)
+                    const box = detections.detection.box;
+                    const videoWidth = webcamVideo.videoWidth || 640;
+                    const videoHeight = webcamVideo.videoHeight || 480;
+                    
+                    // 가이드라인(중앙)과의 거리 및 크기 계산
+                    const faceCenterX = box.x + box.width / 2;
+                    const faceCenterY = box.y + box.height / 2;
+                    const distFromCenter = Math.sqrt(
+                        Math.pow((faceCenterX - videoWidth / 2) / videoWidth, 2) + 
+                        Math.pow((faceCenterY - videoHeight / 3) / videoHeight, 2)
+                    );
+                    
+                    const sizeRatio = box.width / videoWidth;
+                    let syncScore = Math.max(0, 100 - (distFromCenter * 150));
+                    if (sizeRatio < 0.1) syncScore *= 0.5; // 너무 멀리 있음
+                    if (sizeRatio > 0.5) syncScore *= 0.8; // 너무 가까움
+                    
+                    const finalSync = Math.min(100, Math.round(syncScore));
+                    if (syncRateBar) syncRateBar.style.width = finalSync + '%';
+                    if (syncRateText) syncRateText.textContent = finalSync + '%';
+                    
+                    if (syncFeedback) {
+                        if (finalSync >= 90) {
+                            syncFeedback.textContent = "✓ 상반신 및 얼굴 구도가 아주 좋습니다!";
+                            syncFeedback.style.color = "#34d399";
+                        } else if (finalSync >= 70) {
+                            syncFeedback.textContent = "구도가 양호합니다. 조금 더 중앙으로 와주세요.";
+                            syncFeedback.style.color = "#fbbf24";
+                        } else {
+                            syncFeedback.textContent = "⚠️ 카메라 중앙에 상반신이 오도록 맞춰주세요.";
+                            syncFeedback.style.color = "#ef4444";
+                        }
                     }
-                }
 
-                // 2. 항목별 표정 분석 (AI Logic 반영)
-                const expr = detections.expressions;
-                const landmarks = detections.landmarks;
-                
-                // ① 친밀 공감 (Warmth): 행복도 + 입꼬리
-                const mouth = landmarks.getMouth();
-                const leftMouth = mouth[0];
-                const rightMouth = mouth[6];
-                const topMouth = mouth[3];
-                const bottomMouth = mouth[9];
-                const mouthWidth = Math.sqrt(Math.pow(leftMouth.x - rightMouth.x, 2) + Math.pow(leftMouth.y - rightMouth.y, 2));
-                const mouthUpward = ((leftMouth.y + rightMouth.y) / 2) - bottomMouth.y;
-                
-                let warmthVal = (expr.happy * 70) + (Math.max(0, mouthUpward + 10) * 2);
-                warmthVal = Math.min(100, Math.max(0, warmthVal));
-                
-                // smoothing
-                expressionHistory.warmth.push(warmthVal);
-                if (expressionHistory.warmth.length > 10) expressionHistory.warmth.shift();
-                const avgWarmth = Math.round(expressionHistory.warmth.reduce((a, b) => a + b, 0) / expressionHistory.warmth.length);
-                
-                if (warmthScoreEl) warmthScoreEl.textContent = avgWarmth + '%';
-                if (warmthBar) warmthBar.style.width = avgWarmth + '%';
+                    // 2. 항목별 표정 분석 (AI Logic 반영)
+                    const expr = detections.expressions;
+                    const landmarks = detections.landmarks;
+                    
+                    // ① 친밀 공감 (Warmth): 행복도 + 입꼬리
+                    const mouth = landmarks.getMouth();
+                    const leftMouth = mouth[0];
+                    const rightMouth = mouth[6];
+                    const topMouth = mouth[3];
+                    const bottomMouth = mouth[9];
+                    const mouthWidth = Math.sqrt(Math.pow(leftMouth.x - rightMouth.x, 2) + Math.pow(leftMouth.y - rightMouth.y, 2));
+                    const mouthUpward = ((leftMouth.y + rightMouth.y) / 2) - bottomMouth.y;
+                    
+                    let warmthVal = (expr.happy * 70) + (Math.max(0, mouthUpward + 10) * 2);
+                    warmthVal = Math.min(100, Math.max(0, warmthVal));
+                    
+                    // smoothing
+                    expressionHistory.warmth.push(warmthVal);
+                    if (expressionHistory.warmth.length > 10) expressionHistory.warmth.shift();
+                    const avgWarmth = Math.round(expressionHistory.warmth.reduce((a, b) => a + b, 0) / expressionHistory.warmth.length);
+                    
+                    if (warmthScoreEl) warmthScoreEl.textContent = avgWarmth + '%';
+                    if (warmthBar) warmthBar.style.width = avgWarmth + '%';
 
-                // ② 신뢰 몰입 (Focus): 중립도 + 미간 거리
-                const leftEye = landmarks.getLeftEye();
-                const rightEye = landmarks.getRightEye();
-                const leftEyebrow = landmarks.getLeftEyeBrow();
-                const rightEyebrow = landmarks.getRightEyeBrow();
-                
-                // 미간 집중도 (눈썹 사이 거리 변화)
-                const browDist = Math.abs(leftEyebrow[4].x - rightEyebrow[0].x);
-                let focusVal = (expr.neutral * 60) + (expr.surprised * 20);
-                if (browDist < (mouthWidth * 0.45)) focusVal += 30; // 미간 찌푸림(집중)
-                focusVal = Math.min(100, Math.max(0, focusVal));
-                
-                // smoothing
-                expressionHistory.focus.push(focusVal);
-                if (expressionHistory.focus.length > 10) expressionHistory.focus.shift();
-                const avgFocus = Math.round(expressionHistory.focus.reduce((a, b) => a + b, 0) / expressionHistory.focus.length);
+                    // ② 신뢰 몰입 (Focus): 중립도 + 미간 거리
+                    const leftEye = landmarks.getLeftEye();
+                    const rightEye = landmarks.getRightEye();
+                    const leftEyebrow = landmarks.getLeftEyeBrow();
+                    const rightEyebrow = landmarks.getRightEyeBrow();
+                    
+                    // 미간 집중도 (눈썹 사이 거리 변화)
+                    const browDist = Math.abs(leftEyebrow[4].x - rightEyebrow[0].x);
+                    let focusVal = (expr.neutral * 60) + (expr.surprised * 20);
+                    if (browDist < (mouthWidth * 0.45)) focusVal += 30; // 미간 찌푸림(집중)
+                    focusVal = Math.min(100, Math.max(0, focusVal));
+                    
+                    // smoothing
+                    expressionHistory.focus.push(focusVal);
+                    if (expressionHistory.focus.length > 10) expressionHistory.focus.shift();
+                    const avgFocus = Math.round(expressionHistory.focus.reduce((a, b) => a + b, 0) / expressionHistory.focus.length);
 
-                if (focusScoreEl) focusScoreEl.textContent = avgFocus + '%';
-                if (focusBar) focusBar.style.width = avgFocus + '%';
+                    if (focusScoreEl) focusScoreEl.textContent = avgFocus + '%';
+                    if (focusBar) focusBar.style.width = avgFocus + '%';
 
-                // ③ 열정 활력 (Energy): 표정 변화 빈도 + 움직임
-                let movement = 0;
-                if (lastLandmarks) {
-                    const currentPos = landmarks.positions;
-                    const lastPos = lastLandmarks.positions;
-                    for (let i = 0; i < currentPos.length; i += 10) { // 샘플링
-                        movement += Math.sqrt(Math.pow(currentPos[i].x - lastPos[i].x, 2) + Math.pow(currentPos[i].y - lastPos[i].y, 2));
+                    // ③ 열정 활력 (Energy): 표정 변화 빈도 + 움직임
+                    let movement = 0;
+                    if (lastLandmarks) {
+                        const currentPos = landmarks.positions;
+                        const lastPos = lastLandmarks.positions;
+                        for (let i = 0; i < currentPos.length; i += 10) { // 샘플링
+                            movement += Math.sqrt(Math.pow(currentPos[i].x - lastPos[i].x, 2) + Math.pow(currentPos[i].y - lastPos[i].y, 2));
+                        }
                     }
+                    lastLandmarks = landmarks;
+                    
+                    let energyVal = (movement * 5) + (expr.surprised * 40) + ((1 - expr.neutral) * 20); 
+                    energyVal = Math.min(100, Math.max(0, energyVal));
+                    
+                    // smoothing
+                    expressionHistory.energy.push(energyVal);
+                    if (expressionHistory.energy.length > 15) expressionHistory.energy.shift();
+                    const avgEnergy = Math.round(expressionHistory.energy.reduce((a, b) => a + b, 0) / expressionHistory.energy.length);
+
+                    if (energyScoreEl) energyScoreEl.textContent = avgEnergy + '%';
+                    if (energyBar) energyBar.style.width = avgEnergy + '%';
+
+                } else {
+                    // 얼굴 미검출 시 (메시지만 변경)
+                    if (syncFeedback) syncFeedback.textContent = "얼굴을 찾을 수 없습니다.";
                 }
-                lastLandmarks = landmarks;
-                
-                let energyVal = (movement * 5) + (expr.surprised * 40) + ((1 - expr.neutral) * 20); 
-                energyVal = Math.min(100, Math.max(0, energyVal));
-                
-                // smoothing
-                expressionHistory.energy.push(energyVal);
-                if (expressionHistory.energy.length > 15) expressionHistory.energy.shift();
-                const avgEnergy = Math.round(expressionHistory.energy.reduce((a, b) => a + b, 0) / expressionHistory.energy.length);
-
-                if (energyScoreEl) energyScoreEl.textContent = avgEnergy + '%';
-                if (energyBar) energyBar.style.width = avgEnergy + '%';
-
-            } else {
-                // 얼굴 미검출 시 점진적 하락
-                if (syncRateBar) syncRateBar.style.width = '0%';
-                if (syncRateText) syncRateText.textContent = '0%';
-                if (syncFeedback) syncFeedback.textContent = "얼굴을 찾을 수 없습니다.";
+            } catch (err) {
+                console.error("분석 중 에러:", err);
             }
 
             if (webcamStream) {
