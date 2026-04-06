@@ -435,10 +435,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (vitalityBar) vitalityBar.style.width = avgVitality + '%';
                     if (vitalityMsg) vitalityMsg.textContent = "표정을 풍부하게 사용해 보세요!";
 
-                    if (syncFeedback) {
-                        syncFeedback.textContent = "✓ 실시간 분석이 정상적으로 동작 중입니다.";
-                        syncFeedback.style.color = "#34d399";
-                    }
 
                 } else {
                     if (syncFeedback) {
