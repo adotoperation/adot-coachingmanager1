@@ -1,0 +1,12 @@
+flask
+pandas
+google-generativeai
+google-auth
+google-api-python-client
+google-auth-oauthlib
+Pillow
+requests
+python-dotenv
+openpyxl
+flask-cors
+gunicorn
