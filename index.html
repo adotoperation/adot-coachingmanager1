@@ -146,6 +146,12 @@
                     <!-- 녹화를 위한 카메라 피드 복원 -->
                     <video id="webcam-video" autoplay muted playsinline style="width: 100%; object-fit: cover; aspect-ratio: 4/3; display: block; border-radius: 12px; border: 1px solid var(--border-color); transform: scaleX(-1);"></video>
                     
+                    <!-- AI 모델 로딩 상태 오버레이 -->
+                    <div id="ai-model-status" style="position: absolute; top: 10px; right: 10px; padding: 4px 10px; background: rgba(0,0,0,0.6); border-radius: 20px; font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 6px; z-index: 100;">
+                        <div id="status-dot" style="width: 8px; height: 8px; background: #94a3b8; border-radius: 50%;"></div>
+                        <span id="status-text">AI 모델 로딩 대기...</span>
+                    </div>
+
                     <!-- 가이드라인 오버레이 -->
                     <div style="position: absolute; top: 15%; left: 20%; width: 60%; height: 75%; border: 2px dashed rgba(52, 211, 153, 0.6); border-radius: 40% 40% 20% 20%; pointer-events: none;"></div>
                 </div>

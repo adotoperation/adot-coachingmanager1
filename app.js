@@ -217,20 +217,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize Coaching Session
     async function initCoaching() {
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
         // Face API 모델 로드 시작
         if (!isModelsLoaded) {
             try {
-                chatStatus.textContent = "AI 분석 모델을 로드하고 있습니다...";
+                if (statusDot) statusDot.style.background = "#fbbf24"; // Yellow
+                if (statusText) statusText.textContent = "AI 모델 로딩 중...";
+                chatStatus.textContent = "AI 분석 모델을 로딩 중입니다...";
+
+                // jsDelivr가 간혹 실패할 경우를 대비하여 원본 저장소 및 미러 사이트를 순차적으로 로드 시도할 수 있음
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                     faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                     faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
                 ]);
+                
                 isModelsLoaded = true;
                 console.log("✅ Face API 모델 로드 완료");
+                if (statusDot) statusDot.style.background = "#34d399"; // Green
+                if (statusText) statusText.textContent = "AI 분석 활성";
             } catch (err) {
                 console.error("모델 로드 실패:", err);
-                chatStatus.textContent = "AI 모델 로드 실패. 일부 기능이 제한될 수 있습니다.";
+                chatStatus.textContent = "AI 모델 로드 실패. 네트워크나 파일 경로를 확인해주세요.";
+                if (statusDot) statusDot.style.background = "#ef4444"; // Red
+                if (statusText) statusText.textContent = "AI 분석 정지 (로드 에러)";
             }
         }
         
