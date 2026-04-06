@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const geminiAvatar = document.getElementById('gemini-avatar');
     const historyList = document.querySelector('.history-list');
 
-    // Face API models URL (Using public CDN for demo purposes)
-    const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+    // Face API models URL (Using jsDelivr CDN for better reliability and CORS)
+    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/';
     
     let isModelsLoaded = false;
     let webcamStream = null;
@@ -314,11 +314,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const energyBar = document.getElementById('energy-bar');
 
         const runAnalysis = async () => {
-            if (!webcamStream) return;
+            if (!webcamStream || !isModelsLoaded || typeof faceapi === 'undefined') {
+                if (webcamStream) requestAnimationFrame(runAnalysis);
+                return;
+            }
 
             const detections = await faceapi.detectSingleFace(
                 webcamVideo,
-                new faceapi.TinyFaceDetectorOptions()
+                new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.1 })
             ).withFaceLandmarks().withFaceExpressions();
 
             if (detections) {
@@ -430,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (syncFeedback) syncFeedback.textContent = "얼굴을 찾을 수 없습니다.";
             }
 
-            if (isSessionRunning || !isModelsLoaded) {
+            if (webcamStream) {
                 requestAnimationFrame(runAnalysis);
             }
         };
