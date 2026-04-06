@@ -227,9 +227,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (statusText) statusText.textContent = "AI 모델 로딩 중...";
                 chatStatus.textContent = "AI 분석 모델을 로딩 중입니다...";
 
-                // TensorFlow.js 백엔드 준비 대기 (WASM 오류 방지)
-                if (faceapi.tf && faceapi.tf.ready) {
-                    await faceapi.tf.ready();
+                // TensorFlow.js 백엔드 준비 대기 (WASM 오류 방지 및 WebGL 강제 사용)
+                if (faceapi.tf) {
+                    try {
+                        await faceapi.tf.setBackend('webgl');
+                        await faceapi.tf.ready();
+                    } catch (e) {
+                        console.warn("WebGL 백엔드 설정 실패, CPU로 전환합니다:", e);
+                        await faceapi.tf.setBackend('cpu');
+                        await faceapi.tf.ready();
+                    }
                 }
 
                 // jsDelivr가 간혹 실패할 경우를 대비하여 원본 저장소 및 미러 사이트를 순차적으로 로드 시도할 수 있음
