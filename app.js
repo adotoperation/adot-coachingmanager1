@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const geminiAvatar = document.getElementById('gemini-avatar');
     const historyList = document.querySelector('.history-list');
 
-    // Face API models URL (Using jsDelivr CDN for better reliability and CORS)
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/';
+    // Face API models URL (Using maintained GitHub Pages for weights)
+    const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
     
     let isModelsLoaded = false;
     let webcamStream = null;
