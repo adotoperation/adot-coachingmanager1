@@ -51,7 +51,7 @@ for k, v in configs.items():
 
 if missing_vars:
     print(f"\n🚨 [치명적 오류] 다음 환경 변수가 설정되지 않았습니다: {', '.join(missing_vars)}")
-    print("👉 Railway 대시보드의 [Variables] 탭에서 위 변수들을 반드시 추가해 주세요!\n")
+    print("👉 Vercel 대시보드의 [Environment Variables] 설정에서 위 변수들을 반드시 추가해 주세요!\n")
 print("---------------------------------")
 
 # Gemini 초기화
@@ -130,7 +130,7 @@ def login():
 
     try:
         if not SHEET_CSV_URL:
-            return jsonify({"success": False, "message": "🚨 [서버 설정 오류] SHEET_CSV_URL이 Railway에 설정되지 않았습니다."}), 500
+            return jsonify({"success": False, "message": "🚨 [서버 설정 오류] SHEET_CSV_URL이 Vercel에 설정되지 않았습니다."}), 500
             
         req = urllib.request.Request(SHEET_CSV_URL)
         with urllib.request.urlopen(req) as response:
@@ -166,7 +166,7 @@ def login():
 def get_personas():
     try:
         if not XLSX_URL:
-            return jsonify({"success": False, "message": "🚨 [서버 설정 오류] XLSX_URL이 Railway에 설정되지 않았습니다."}), 500
+            return jsonify({"success": False, "message": "🚨 [서버 설정 오류] XLSX_URL이 Vercel에 설정되지 않았습니다."}), 500
         
         print(f"📊 [페르소나 진단] XLSX_URL에서 데이터를 읽어오는 중...")
         df = pd.read_excel(XLSX_URL, sheet_name='페르소나')
